@@ -76,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const client = new OpenAI({
     apiKey,
-    baseURL: process.env.OPENAI_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+    ...(process.env.OPENAI_BASE_URL ? { baseURL: process.env.OPENAI_BASE_URL } : {}),
   });
 
   const cats = availableCategories ?? [...CATEGORIES];
@@ -95,15 +95,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log("[command] prompt:", JSON.stringify(prompt));
   console.log("[command] raw:", raw);
 
-  const json1 = extractJSON(raw);
-  const first = CommandSchema.safeParse(JSON.parse(json1));
-  if (first.success) {
-    return res.status(200).json(first.data);
+  let json1: string;
+  try {
+    json1 = extractJSON(raw);
+    const first = CommandSchema.safeParse(JSON.parse(json1));
+    if (first.success) {
+      return res.status(200).json(first.data);
+    }
+  } catch {
+    json1 = raw;
   }
 
   // Retry with repair prompt
   console.log("[command] first parse failed, retrying");
-  const repairPrompt = `The following was supposed to be valid JSON matching the schema but failed:\n\n${json1}\n\nError: ${first.error.message}\n\nOutput ONLY valid JSON. No other text.`;
+  const repairPrompt = `The following was supposed to be valid JSON matching the schema but failed:\n\n${json1}\n\nFix it and output ONLY valid JSON. No other text.`;
 
   let raw2: string;
   try {
@@ -114,16 +119,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   console.log("[command] retry raw:", raw2);
-  const json2 = extractJSON(raw2);
-  const second = CommandSchema.safeParse(JSON.parse(json2));
-  if (second.success) {
-    return res.status(200).json(second.data);
+  try {
+    const json2 = extractJSON(raw2);
+    const second = CommandSchema.safeParse(JSON.parse(json2));
+    if (second.success) {
+      return res.status(200).json(second.data);
+    }
+    return res.status(422).json({
+      error: "Invalid command after retry",
+      firstResponse: json1,
+      secondResponse: json2,
+      validationError: second.error.message,
+    });
+  } catch {
+    return res.status(422).json({ error: "Could not parse LLM response as JSON", raw: raw2 });
   }
-
-  return res.status(422).json({
-    error: "Invalid command after retry",
-    firstResponse: json1,
-    secondResponse: json2,
-    validationError: second.error.message,
-  });
 }
