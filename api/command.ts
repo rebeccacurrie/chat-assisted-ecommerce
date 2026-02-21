@@ -46,7 +46,8 @@ function extractJSON(raw: string): string {
 }
 
 async function callLLM(client: OpenAI, system: string, user: string): Promise<string> {
-  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+  const model = (process.env.OPENAI_MODEL || "gpt-4o-mini").trim();
+  console.log("[callLLM] using model:", JSON.stringify(model), "baseURL:", client.baseURL);
   const res = await client.chat.completions.create({
     model,
     temperature: 0,
