@@ -61,8 +61,8 @@ async function callLLM(client: OpenAI, system: string, user: string): Promise<st
 }
 
 function checkBasicAuth(req: VercelRequest): boolean {
-  const expectedUser = process.env.BASIC_AUTH_USER;
-  const expectedPwd = process.env.BASIC_AUTH_PASSWORD;
+  const expectedUser = process.env.BASIC_AUTH_USER?.trim();
+  const expectedPwd = process.env.BASIC_AUTH_PASSWORD?.trim();
 
   // If credentials aren't configured, skip auth
   if (!expectedUser || !expectedPwd) return true;

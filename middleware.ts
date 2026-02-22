@@ -4,8 +4,8 @@
  * If the env vars are not set, auth is skipped (avoids lockout).
  */
 export default function middleware(request: Request) {
-  const expectedUser = process.env.BASIC_AUTH_USER;
-  const expectedPwd = process.env.BASIC_AUTH_PASSWORD;
+  const expectedUser = process.env.BASIC_AUTH_USER?.trim();
+  const expectedPwd = process.env.BASIC_AUTH_PASSWORD?.trim();
 
   // Skip auth if credentials aren't configured
   if (!expectedUser || !expectedPwd) {
