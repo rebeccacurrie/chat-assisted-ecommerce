@@ -60,9 +60,35 @@ async function callLLM(client: OpenAI, system: string, user: string): Promise<st
   return res.choices[0]?.message?.content?.trim() ?? "";
 }
 
+function checkBasicAuth(req: VercelRequest): boolean {
+  const expectedUser = process.env.BASIC_AUTH_USER;
+  const expectedPwd = process.env.BASIC_AUTH_PASSWORD;
+
+  // If credentials aren't configured, skip auth
+  if (!expectedUser || !expectedPwd) return true;
+
+  const auth = req.headers.authorization;
+  if (!auth) return false;
+
+  const [scheme, encoded] = auth.split(" ");
+  if (scheme !== "Basic" || !encoded) return false;
+
+  const decoded = Buffer.from(encoded, "base64").toString();
+  const idx = decoded.indexOf(":");
+  const user = decoded.slice(0, idx);
+  const pwd = decoded.slice(idx + 1);
+
+  return user === expectedUser && pwd === expectedPwd;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  if (!checkBasicAuth(req)) {
+    res.setHeader("WWW-Authenticate", 'Basic realm="Secure Area"');
+    return res.status(401).json({ error: "Authentication required" });
   }
 
   const { prompt, availableCategories, availableSorts } = req.body ?? {};
